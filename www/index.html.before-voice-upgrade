@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ARCHER AI</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;
+ background:#05080d;
+ color:#fff;
+ font-family:Arial,sans-serif;
+ height:100vh;
+ overflow:hidden
+}
+header{
+ height:70px;
+ padding:12px 16px;
+ background:#0b111b;
+ border-bottom:1px solid #263448;
+ display:flex;
+ align-items:center;
+ justify-content:space-between
+}
+.logo{font-size:22px;font-weight:bold;letter-spacing:2px}
+.status{font-size:11px;color:#42e6a4;margin-top:3px}
+#chat{
+ height:calc(100vh - 145px);
+ overflow-y:auto;
+ padding:15px
+}
+.msg{
+ max-width:88%;
+ padding:13px 15px;
+ margin:10px 0;
+ border-radius:16px;
+ line-height:1.5;
+ white-space:pre-wrap
+}
+.ai{
+ background:#121b28;
+ border:1px solid #263448
+}
+.user{
+ background:#155d43;
+ margin-left:auto
+}
+.time{font-size:9px;opacity:.5;margin-top:5px}
+.bar{
+ position:fixed;
+ bottom:0;
+ left:0;
+ right:0;
+ height:75px;
+ padding:10px;
+ background:#0b111b;
+ border-top:1px solid #263448;
+ display:flex;
+ gap:7px
+}
+input{
+ flex:1;
+ min-width:0;
+ border:1px solid #29384b;
+ border-radius:14px;
+ background:#070b11;
+ color:#fff;
+ padding:0 14px;
+ outline:none
+}
+button{
+ border:0;
+ border-radius:14px;
+ background:#42e6a4;
+ color:#04100b;
+ font-weight:bold;
+ min-width:48px;
+ font-size:18px
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<div>
+<div class="logo">◉ ARCHER AI</div>
+<div class="status">● ONLINE • BIJOY EDITION</div>
+</div>
+<button onclick="showHelp()">☰</button>
+</header>
+
+<div id="chat">
+
+<div class="msg ai">
+হ্যালো বিজয় 👋
+
+আমি Archer AI।
+তুমি মেসেজ লিখতে পারো অথবা 🎤 চাপ দিয়ে কথা বলতে পারো।
+
+লিখে চেষ্টা করো:
+হ্যালো
+সময়
+তারিখ
+সাহায্য
+সাইবার ল্যাব
+</div>
+
+</div>
+
+<div class="bar">
+<input id="input" placeholder="কমান্ড বা মেসেজ লিখুন...">
+<button onclick="voice()">🎤</button>
+<button onclick="send()">➤</button>
+</div>
+
+<script>
+
+const input=document.getElementById("input");
+const chat=document.getElementById("chat");
+
+function now(){
+ return new Date().toLocaleTimeString("bn-BD",{
+  hour:"2-digit",
+  minute:"2-digit"
+ });
+}
+
+function safe(text){
+ return text
+ .replaceAll("&","&amp;")
+ .replaceAll("<","&lt;")
+ .replaceAll(">","&gt;");
+}
+
+function add(text,type){
+
+ const div=document.createElement("div");
+
+ div.className="msg "+type;
+
+ div.innerHTML=
+ safe(text)+
+ '<div class="time">'+now()+"</div>";
+
+ chat.appendChild(div);
+
+ chat.scrollTop=chat.scrollHeight;
+}
+
+function reply(text){
+
+ const t=text.toLowerCase();
+
+ if(
+ t.includes("হ্যালো")||
+ t.includes("hello")||
+ t.includes("hi")
+ ){
+  return "হ্যালো বিজয় 👋\nArcher AI প্রস্তুত।";
+ }
+
+ if(
+ t.includes("সময়")||
+ t.includes("সময়")||
+ t.includes("time")
+ ){
+  return "এখন সময়: "+
+  new Date().toLocaleTimeString("bn-BD");
+ }
+
+ if(
+ t.includes("তারিখ")||
+ t.includes("date")
+ ){
+  return "আজকের তারিখ: "+
+  new Date().toLocaleDateString("bn-BD");
+ }
+
+ if(
+ t.includes("সাহায্য")||
+ t.includes("help")
+ ){
+  return `Archer AI:
+
+🤖 সাধারণ প্রশ্ন
+🎤 বাংলা Voice Input
+🔊 Voice Reply
+🕐 সময়
+📅 তারিখ
+🛡️ Cyber Learning
+⚙️ Settings`;
+ }
+
+ if(
+ t.includes("সাইবার")||
+ t.includes("cyber")||
+ t.includes("nmap")
+ ){
+  return `🛡️ Cyber Lab
+
+নিজের ফোন, নিজের Wi-Fi অথবা অনুমতি থাকা ল্যাবেই security testing করো।
+
+আমি অননুমোদিত access বা অন্যের account/device আক্রমণে সাহায্য করব না।`;
+ }
+
+ return "কমান্ড পেয়েছি:\n\n"+
+ text+
+ "\n\nএটি এখন Local AI Demo Mode।";
+}
+
+let history = [];
+let busy = false;
+
+async function send(){
+ const text = input.value.trim();
+ if(!text || busy) return;
+
+ add(text, "user");
+ input.value = "";
+ busy = true;
+
+ try {
+   const response = await fetch("/api/chat", {
+     method: "POST",
+     headers: {"Content-Type": "application/json"},
+     body: JSON.stringify({message: text, history})
+   });
+
+   const data = await response.json();
+   if(!response.ok) throw new Error(data.error || "AI সংযোগে সমস্যা");
+
+   const answer = data.answer;
+   history.push({role:"user", text});
+   history.push({role:"model", text:answer});
+   add(answer, "ai");
+   speak(answer);
+ } catch(err) {
+   add("AI সংযোগে সমস্যা: " + err.message, "ai");
+ } finally {
+   busy = false;
+ }
+}
+
+function voice(){
+
+ const R=
+ window.SpeechRecognition||
+ window.webkitSpeechRecognition;
+
+ if(!R){
+
+  alert(
+   "এই browser-এ Voice Recognition নেই। Chrome ব্যবহার করুন।"
+  );
+
+  return;
+ }
+
+ const rec=new R();
+
+ rec.lang="bn-BD";
+
+ rec.onresult=function(e){
+
+  input.value=
+   e.results[0][0].transcript;
+
+  send();
+
+ };
+
+ rec.start();
+}
+
+function speak(text){
+
+ if(!("speechSynthesis" in window))return;
+
+ speechSynthesis.cancel();
+
+ const u=
+ new SpeechSynthesisUtterance(text);
+
+ u.lang="bn-BD";
+
+ u.rate=.95;
+
+ speechSynthesis.speak(u);
+}
+
+function showHelp(){
+
+ add(
+ `⚙️ Archer AI
+
+• বাংলা Voice
+• Voice Reply
+• Local Assistant
+• Cyber Learning
+
+আরও advanced AI API পরে নিরাপদভাবে যোগ করা যাবে।`,
+ "ai"
+ );
+
+}
+
+input.addEventListener("keydown",e=>{
+
+ if(e.key==="Enter")send();
+
+});
+
+</script>
+
+</body>
+</html>

@@ -211,25 +211,74 @@ function reply(text){
  "\n\nএটি এখন Local AI Demo Mode।";
 }
 
-function send(){
+let history = [];
+let busy = false;
 
- const text=input.value.trim();
 
- if(!text)return;
+async function openAppCommand(text) {
+ const t = text.toLowerCase();
+ const commands = [
+  {names:["youtube","ইউটিউব"], app:"youtube", label:"YouTube"},
+  {names:["chrome","ক্রোম"], app:"chrome", label:"Chrome"},
+  {names:["facebook","ফেসবুক"], app:"facebook", label:"Facebook"},
+  {names:["whatsapp","হোয়াটসঅ্যাপ","হোয়াটসঅ্যাপ"], app:"whatsapp", label:"WhatsApp"}
+ ];
 
- add(text,"user");
+ const asksToOpen = /(খোলো|খুলে দাও|চালু করো|open|launch)/i.test(t);
+ if (!asksToOpen) return false;
 
- input.value="";
+ const item = commands.find(c => c.names.some(n => t.includes(n)));
+ if (!item) return false;
 
- setTimeout(()=>{
+ const bridge = window.Capacitor?.Plugins?.PhoneControl;
+ if (!bridge) {
+  add("অ্যাপ খোলার Android সুবিধা এখনো প্রস্তুত নয়। নতুন APK তৈরি করে ইনস্টল করতে হবে।", "ai");
+  speak("অ্যাপ খোলার সুবিধা এখনো প্রস্তুত নয়");
+  return true;
+ }
 
-  const r=reply(text);
+ try {
+  await bridge.openApp({app:item.app});
+  add(item.label + " খোলার নির্দেশ সম্পন্ন হয়েছে।", "ai");
+  speak(item.label + " খুলছি");
+ } catch (e) {
+  const message = e?.message || "অ্যাপ খোলা যায়নি";
+  add(message, "ai");
+  speak(message);
+ }
+ return true;
+}
 
-  add(r,"ai");
+async function send(){
+ const text = input.value.trim();
+ if(!text || busy) return;
 
-  speak(r);
+ add(text, "user");
+ input.value = "";
+ busy = true;
 
- },300);
+ try {
+   if (await openAppCommand(text)) return;
+
+   const response = await fetch("/api/chat", {
+     method: "POST",
+     headers: {"Content-Type": "application/json"},
+     body: JSON.stringify({message: text, history})
+   });
+
+   const data = await response.json();
+   if(!response.ok) throw new Error(data.error || "AI সংযোগে সমস্যা");
+
+   const answer = data.answer;
+   history.push({role:"user", text});
+   history.push({role:"model", text:answer});
+   add(answer, "ai");
+   speak(answer);
+ } catch(err) {
+   add("AI সংযোগে সমস্যা: " + err.message, "ai");
+ } finally {
+   busy = false;
+ }
 }
 
 function voice(){
